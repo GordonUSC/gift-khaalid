@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- STYLE: 16-bit rooftop runner at night (magenta, cyan and gold pixels, Silkscreen with Space Mono) | WHY: Khaalid started game jams in sixth grade and built ScoreSpace around high-score games, so the gift is a real one-button high-score game he can beat | ALT: A jam countdown timer, rejected because a playable game says it better -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>High Score</title>
+<meta name="description" content="A one-button game for Khaalid.">
+<meta property="og:title" content="High Score, for Khaalid">
+<meta property="og:image" content="https://gordonusc.github.io/gift-khaalid/img/hero.jpg">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+:root{--mag:#ff4fd8;--cyan:#45f0ff;--gold:#ffd23f;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0d0628;color:#fff;font:14px/1.45 "Space Mono",ui-monospace,monospace;overflow:hidden;-webkit-user-select:none;user-select:none;touch-action:none}
+.stage{position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);width:min(100vw,calc(100svh*9/16));overflow:hidden;image-rendering:pixelated}
+.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+.top{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 16px);text-align:center;padding:0 16px;text-shadow:0 0 10px #000,0 2px 0 #000;pointer-events:none}
+.top small{font:700 11px Silkscreen,monospace;letter-spacing:.2em;color:var(--cyan)}
+.top h1{font:700 clamp(30px,10vw,46px)/1.05 Silkscreen,monospace;margin:6px 0;color:var(--gold)}
+.top p{margin:0 auto;max-width:30ch}
+.hud{position:absolute;left:16px;right:16px;top:calc(env(safe-area-inset-top,0px) + 150px);display:flex;justify-content:space-between;font:700 14px Silkscreen,monospace;text-shadow:0 2px 0 #000;pointer-events:none}
+.hud b{color:var(--gold)}
+.msg{position:absolute;left:0;right:0;top:44%;text-align:center;font:700 22px Silkscreen,monospace;color:var(--cyan);text-shadow:0 2px 0 #000;pointer-events:none}
+.end{position:absolute;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 40px);text-align:center;padding:16px;border:3px solid var(--gold);background:#0d0628ee;opacity:0;transition:opacity .6s;pointer-events:none}
+.end.on{opacity:1}
+.end h2{font:700 20px/1.2 Silkscreen,monospace;margin:0 0 8px;color:var(--gold)}
+.end table{margin:6px auto 10px;font:700 13px Silkscreen,monospace;border-collapse:collapse}
+.end td{padding:2px 10px}
+.foot{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);text-align:center;font-size:10px;opacity:.75;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <img class="bg" src="img/hero.jpg" alt="A pixel art neon city skyline at night with a rooftop running track and a big pixel moon">
+  <canvas id="c"></canvas>
+  <div class="top"><small>FOR KHAALID</small><h1>HIGH SCORE</h1><p>One button. Tap to jump. Gordon set the score to beat: 12.</p></div>
+  <div class="hud"><span>SCORE <b id="sc">0</b></span><span>BEST <b id="best">GB 12</b></span></div>
+  <div class="msg" id="msg">TAP TO START</div>
+  <div class="end" id="end"><h2>NEW HIGH SCORE!</h2><table><tr><td>1.</td><td>KB</td><td id="kb">15</td></tr><tr><td>2.</td><td>GB</td><td>12</td></tr></table>From a sixth grade game jam to ScoreSpace. Gordon is proud to be in your corner, Khaalid.</div>
+  <div class="foot">made by Darby, Gordon's AI assistant, with love from Gordon</div>
+</div>
+<script>
+// ElevenLabs sound design: chiptune jump, bonk, high-score fanfare, arcade loop. Code only mixes.
+const SND=['jump','bonk','fanfare','bed'];
+let ac=null, master=null, bufs={};
+function audio(){ if(!ac){ try{ ac=new (window.AudioContext||window.webkitAudioContext)(); master=ac.createGain(); master.gain.value=.9; master.connect(ac.destination); SND.forEach(load);}catch(e){} } if(ac&&ac.state==='suspended') ac.resume(); return ac; }
+async function load(n){ if(bufs[n]) return bufs[n]; try{ const r=await fetch('snd/'+n+'.mp3'); const a=await r.arrayBuffer(); bufs[n]=await new Promise((ok,no)=>ac.decodeAudioData(a,ok,no)); }catch(e){} return bufs[n]; }
+async function play(n,vol=1,loop=false,rate=1){ if(!audio()) return null; const b=await load(n); if(!b) return null; const s=ac.createBufferSource(), g=ac.createGain(); s.buffer=b; s.loop=loop; s.playbackRate.value=rate; g.gain.value=vol; s.connect(g).connect(master); s.start(); return {s,g}; }
+const $=s=>document.querySelector(s);
+const c=$('#c'), x=c.getContext('2d'), D=Math.min(devicePixelRatio||1,2);
+function size(){ c.width=c.clientWidth*D; c.height=c.clientHeight*D; } size(); addEventListener('resize',size);
+const GOAL=15; let state='idle', score=0, py=0, vy=0, obs=[], speed=0, dist=0, bed=null, bits=[];
+function ground(){ return c.height*.80; }
+function reset(){ score=0; py=0; vy=0; obs=[]; dist=0; speed=4.2*D; $('#sc').textContent=0; }
+function tap(){ audio(); if(state==='idle'||state==='over'){ reset(); state='run'; $('#msg').textContent=''; if(!bed) play('bed',.4,true).then(h=>bed=h); return; }
+  if(state==='run' && py===0){ vy=-15*D; play('jump',.7); } }
+c.addEventListener('pointerdown',e=>{ e.preventDefault(); tap(); }); addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); tap(); } });
+function win(){ state='won'; $('#kb').textContent=score; $('#msg').textContent=''; play('fanfare',.9); if(bed) bed.g.gain.value=.15; $('#end').classList.add('on'); for(let i=0;i<60;i++) bits.push({x:c.width/2,y:c.height*.45,vx:(Math.cos(i)*(2+i%4))*D,vy:(Math.sin(i*1.3)*(2+i%3)-2)*D,a:1,c:['#ff4fd8','#45f0ff','#ffd23f'][i%3]}); }
+(function loop(){ x.clearRect(0,0,c.width,c.height); const G=ground(), S=26*D, px=c.width*.22;
+  if(state==='run'){ dist+=speed; speed+=.0016*D; vy+=.8*D; py+=vy; if(py>0){ py=0; vy=0; }
+    if(!obs.length || obs[obs.length-1].x < c.width-(170+((obs.length*37)%90))*D) obs.push({x:c.width+20*D,w:(18+(obs.length*7)%14)*D,h:(24+(obs.length*11)%22)*D,passed:false});
+    obs.forEach(o=>{ o.x-=speed; if(!o.passed && o.x+o.w<px){ o.passed=true; score++; $('#sc').textContent=score; if(score>=GOAL) win(); }
+      const top=G-o.h; if(px+S>o.x && px<o.x+o.w && G+py>top+4*D){ state='over'; play('bonk',.8); $('#msg').textContent= score>12?'SO CLOSE! TAP TO RETRY':'TAP TO RETRY'; } });
+    obs=obs.filter(o=>o.x>-60*D); }
+  x.fillStyle='#45f0ff'; x.fillRect(0,G,c.width,3*D);
+  obs.forEach(o=>{ x.fillStyle='#ff4fd8'; x.fillRect(o.x,G-o.h,o.w,o.h); x.fillStyle='#ffd23f'; x.fillRect(o.x,G-o.h,o.w,4*D); });
+  x.fillStyle='#ffd23f'; x.fillRect(px,G-S+py,S,S); x.fillStyle='#0d0628'; x.fillRect(px+S*.6,G-S*.75+py,S*.18,S*.18);
+  bits.forEach(b=>{ b.x+=b.vx; b.y+=b.vy; b.vy+=.12*D; b.a-=.01; x.globalAlpha=Math.max(b.a,0); x.fillStyle=b.c; x.fillRect(b.x,b.y,6*D,6*D); }); x.globalAlpha=1; bits=bits.filter(b=>b.a>0);
+  requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>

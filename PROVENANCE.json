@@ -1,0 +1,22 @@
+{
+ "img/hero.jpg": {
+  "tool": "higgsfield",
+  "prompt": "pixel art neon skyline with a rooftop track (job a92a3a98) gpt_image_2_5"
+ },
+ "snd/jump.mp3": {
+  "tool": "elevenlabs",
+  "prompt": "chiptune jump (flow 2UA09OaZQMbsTK0zdoXZ)"
+ },
+ "snd/bonk.mp3": {
+  "tool": "elevenlabs",
+  "prompt": "8-bit bonk (flow 2UA09OaZQMbsTK0zdoXZ)"
+ },
+ "snd/fanfare.mp3": {
+  "tool": "elevenlabs",
+  "prompt": "chiptune high score fanfare (flow 2UA09OaZQMbsTK0zdoXZ)"
+ },
+ "snd/bed.mp3": {
+  "tool": "elevenlabs",
+  "prompt": "chiptune arcade loop, eleven_music_v2_5 (flow 2UA09OaZQMbsTK0zdoXZ)"
+ }
+}
